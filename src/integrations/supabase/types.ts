@@ -63,6 +63,7 @@ export type Database = {
       }
       conversations: {
         Row: {
+          assigned_to: string | null
           contact_session_id: string
           created_at: string
           id: string
@@ -72,6 +73,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          assigned_to?: string | null
           contact_session_id: string
           created_at?: string
           id?: string
@@ -81,6 +83,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          assigned_to?: string | null
           contact_session_id?: string
           created_at?: string
           id?: string
