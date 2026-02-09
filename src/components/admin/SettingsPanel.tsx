@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -15,6 +16,7 @@ export const SettingsPanel = ({ organization, membership }: SettingsPanelProps) 
   const { signOut, refreshOrgData } = useAuth();
   const [orgName, setOrgName] = useState(organization.name);
   const [greeting, setGreeting] = useState(organization.widget_greeting || "");
+  const [aiModel, setAiModel] = useState(organization.ai_model || "google/gemini-3-flash-preview");
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const isAdmin = membership?.role === "admin";
@@ -33,7 +35,7 @@ export const SettingsPanel = ({ organization, membership }: SettingsPanelProps) 
     setSaving(true);
     const { error } = await supabase
       .from("organizations")
-      .update({ name: orgName, widget_greeting: greeting })
+      .update({ name: orgName, widget_greeting: greeting, ai_model: aiModel })
       .eq("id", organization.id);
 
     if (error) {
@@ -84,6 +86,23 @@ export const SettingsPanel = ({ organization, membership }: SettingsPanelProps) 
                 onChange={(e) => setGreeting(e.target.value)}
                 className="mt-1 bg-secondary border-border"
               />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">AI Model</label>
+              <Select value={aiModel} onValueChange={setAiModel}>
+                <SelectTrigger className="mt-1 bg-secondary border-border">
+                  <SelectValue placeholder="Chọn model AI" />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-border z-50">
+                  <SelectItem value="google/gemini-3-flash-preview">Gemini 3 Flash (Nhanh, cân bằng)</SelectItem>
+                  <SelectItem value="google/gemini-3-pro-preview">Gemini 3 Pro (Mạnh nhất)</SelectItem>
+                  <SelectItem value="google/gemini-2.5-flash">Gemini 2.5 Flash (Tiết kiệm)</SelectItem>
+                  <SelectItem value="google/gemini-2.5-flash-lite">Gemini 2.5 Flash Lite (Rẻ nhất)</SelectItem>
+                  <SelectItem value="openai/gpt-5">GPT-5 (Chính xác cao)</SelectItem>
+                  <SelectItem value="openai/gpt-5-mini">GPT-5 Mini (Cân bằng)</SelectItem>
+                  <SelectItem value="openai/gpt-5-nano">GPT-5 Nano (Nhanh, rẻ)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <Button onClick={saveSettings} disabled={saving} className="echo-gradient-bg text-primary-foreground hover:opacity-90">
               {saving ? "Đang lưu..." : "Lưu cài đặt"}

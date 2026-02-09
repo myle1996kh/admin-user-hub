@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageSquare, Send, RotateCcw, X } from "lucide-react";
@@ -29,7 +29,10 @@ const WidgetPage = () => {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [orgName, setOrgName] = useState("Echo Support");
   const [error, setError] = useState<string | null>(null);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -224,7 +227,63 @@ const WidgetPage = () => {
     setEmail("");
     setSessionId(null);
     setConversationId(null);
+    setHasMore(true);
   };
+
+  const loadOlderMessages = useCallback(async () => {
+    if (!conversationId || loadingOlder || !hasMore) return;
+    setLoadingOlder(true);
+
+    const oldest = messages.find(m => !m.id.startsWith("greeting") && !m.id.startsWith("local-") && !m.id.startsWith("ai-") && !m.id.startsWith("err-"));
+    const before = oldest?.created_at;
+
+    try {
+      const resp = await fetch(`${FUNC_URL}/widget-session`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          action: "load_messages",
+          conversationId,
+          before,
+          limit: 20,
+        }),
+      });
+      const data = await resp.json();
+      if (data.messages?.length) {
+        const container = messagesContainerRef.current;
+        const prevHeight = container?.scrollHeight || 0;
+        setMessages((prev) => [
+          ...data.messages.map((m: any) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            created_at: m.created_at,
+          })),
+          ...prev,
+        ]);
+        // Maintain scroll position
+        requestAnimationFrame(() => {
+          if (container) {
+            container.scrollTop = container.scrollHeight - prevHeight;
+          }
+        });
+      }
+      setHasMore(data.hasMore ?? false);
+    } catch (e) {
+      console.error("Load older messages failed:", e);
+    }
+    setLoadingOlder(false);
+  }, [conversationId, loadingOlder, hasMore, messages]);
+
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    if (el.scrollTop < 50 && hasMore && !loadingOlder) {
+      loadOlderMessages();
+    }
+  }, [hasMore, loadingOlder, loadOlderMessages]);
 
   if (!orgId) {
     return (
@@ -311,7 +370,12 @@ const WidgetPage = () => {
               </form>
             ) : (
               <>
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                <div ref={messagesContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 space-y-3">
+                  {loadingOlder && (
+                    <div className="flex justify-center py-2">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    </div>
+                  )}
                   {messages.map((msg) => (
                     <motion.div
                       key={msg.id}
