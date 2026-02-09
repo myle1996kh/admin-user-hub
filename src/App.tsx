@@ -8,6 +8,7 @@ import Landing from "./pages/Landing";
 import AuthPage from "./pages/AuthPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import AdminDashboard from "./pages/AdminDashboard";
+import SuperAdminPage from "./pages/SuperAdminPage";
 import WidgetPage from "./pages/WidgetPage";
 import NotFound from "./pages/NotFound";
 
@@ -25,6 +26,7 @@ const App = () => (
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/onboarding" element={<OnboardingPage />} />
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/super-admin" element={<SuperAdminPage />} />
             <Route path="/widget" element={<WidgetPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

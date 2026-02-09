@@ -9,6 +9,7 @@ interface AuthContextType {
   profile: any | null;
   organization: any | null;
   membership: any | null;
+  isSuperAdmin: boolean;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -30,6 +31,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<any | null>(null);
   const [organization, setOrganization] = useState<any | null>(null);
   const [membership, setMembership] = useState<any | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   const fetchUserData = async (userId: string) => {
     // Fetch profile
@@ -55,6 +57,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setMembership(null);
       setOrganization(null);
     }
+
+    // Check super admin
+    const { data: platformRole } = await supabase
+      .from("platform_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "super_admin")
+      .maybeSingle();
+    setIsSuperAdmin(!!platformRole);
   };
 
   const refreshOrgData = async () => {
@@ -112,10 +123,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setProfile(null);
     setOrganization(null);
     setMembership(null);
+    setIsSuperAdmin(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, profile, organization, membership, signUp, signIn, signOut, refreshOrgData }}>
+    <AuthContext.Provider value={{ user, session, loading, profile, organization, membership, isSuperAdmin, signUp, signIn, signOut, refreshOrgData }}>
       {children}
     </AuthContext.Provider>
   );

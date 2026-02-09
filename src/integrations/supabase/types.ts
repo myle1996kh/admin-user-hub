@@ -245,6 +245,27 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["platform_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["platform_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["platform_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -279,12 +300,14 @@ export type Database = {
     Functions: {
       is_org_admin: { Args: { _org_id: string }; Returns: boolean }
       is_org_member: { Args: { _org_id: string }; Returns: boolean }
+      is_super_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       conversation_status: "unresolved" | "escalated" | "resolved"
       message_content_type: "text" | "tool_call"
       message_role: "user" | "assistant" | "system"
       org_role: "admin" | "member"
+      platform_role: "super_admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -416,6 +439,7 @@ export const Constants = {
       message_content_type: ["text", "tool_call"],
       message_role: ["user", "assistant", "system"],
       org_role: ["admin", "member"],
+      platform_role: ["super_admin", "user"],
     },
   },
 } as const
