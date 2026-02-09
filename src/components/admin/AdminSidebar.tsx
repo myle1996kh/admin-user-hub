@@ -5,16 +5,18 @@ import { useAuth } from "@/hooks/useAuth";
 interface AdminSidebarProps {
   activeTab: "inbox" | "knowledge" | "settings";
   onTabChange: (tab: "inbox" | "knowledge" | "settings") => void;
+  isAdmin?: boolean;
 }
 
-const navItems = [
-  { id: "inbox" as const, icon: Inbox, label: "Inbox" },
-  { id: "knowledge" as const, icon: BookOpen, label: "Knowledge Base" },
-  { id: "settings" as const, icon: Settings, label: "Settings" },
+const allNavItems = [
+  { id: "inbox" as const, icon: Inbox, label: "Inbox", adminOnly: false },
+  { id: "knowledge" as const, icon: BookOpen, label: "Knowledge Base", adminOnly: true },
+  { id: "settings" as const, icon: Settings, label: "Settings", adminOnly: true },
 ];
 
-export const AdminSidebar = ({ activeTab, onTabChange }: AdminSidebarProps) => {
+export const AdminSidebar = ({ activeTab, onTabChange, isAdmin = false }: AdminSidebarProps) => {
   const { isSuperAdmin } = useAuth();
+  const navItems = allNavItems.filter((item) => !item.adminOnly || isAdmin);
   return (
     <div className="flex h-full w-16 flex-col items-center border-r border-border bg-sidebar py-4 lg:w-56">
       {/* Logo */}

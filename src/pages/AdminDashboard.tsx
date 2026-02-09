@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { MessageSquare } from "lucide-react";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { InboxList } from "@/components/admin/InboxList";
 import { ChatPanel } from "@/components/admin/ChatPanel";
@@ -10,7 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
 const AdminDashboard = () => {
-  const { user, organization, membership, loading } = useAuth();
+  const { user, organization, membership, loading, isSuperAdmin, signOut } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"inbox" | "knowledge" | "settings">("inbox");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -19,15 +20,14 @@ const AdminDashboard = () => {
   const [sessions, setSessions] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
 
+  const isAdmin = membership?.role === "admin";
+
   useEffect(() => {
     if (!loading && !user) {
       navigate("/auth");
       return;
     }
-    if (!loading && user && !organization) {
-      navigate("/onboarding");
-      return;
-    }
+    // User is logged in but has no org - show waiting screen
   }, [user, organization, loading, navigate]);
 
   // Fetch conversations
@@ -126,11 +126,34 @@ const AdminDashboard = () => {
     );
   }
 
-  if (!user || !organization) return null;
+  if (!user) return null;
+
+  // No organization - show waiting message
+  if (!organization) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="text-center max-w-md p-6">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl echo-gradient-bg mx-auto mb-4">
+            <MessageSquare className="h-6 w-6 text-primary-foreground" />
+          </div>
+          <h1 className="text-xl font-semibold text-foreground mb-2">Chào mừng đến với Echo</h1>
+          <p className="text-sm text-muted-foreground mb-4">
+            Tài khoản của bạn chưa được gán vào tổ chức nào. Vui lòng liên hệ quản trị viên để được thêm vào tổ chức.
+          </p>
+          <button
+            onClick={signOut}
+            className="text-sm text-muted-foreground hover:text-foreground underline"
+          >
+            Đăng xuất
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <AdminSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+      <AdminSidebar activeTab={activeTab} onTabChange={setActiveTab} isAdmin={isAdmin} />
       
       {activeTab === "inbox" && (
         <>
@@ -167,8 +190,8 @@ const AdminDashboard = () => {
         </>
       )}
 
-      {activeTab === "knowledge" && <KnowledgeBase organizationId={organization.id} />}
-      {activeTab === "settings" && <SettingsPanel organization={organization} membership={membership} />}
+      {activeTab === "knowledge" && isAdmin && <KnowledgeBase organizationId={organization.id} />}
+      {activeTab === "settings" && isAdmin && <SettingsPanel organization={organization} membership={membership} />}
     </div>
   );
 };
