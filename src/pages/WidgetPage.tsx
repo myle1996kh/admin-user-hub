@@ -1,87 +1,257 @@
 import { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageSquare, Send, RotateCcw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+const FUNC_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
+
 interface WidgetMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
-  createdAt: number;
+  created_at: string;
 }
 
-const botResponses = [
-  "Xin chào! Tôi là trợ lý AI của Echo. Tôi có thể giúp gì cho bạn?",
-  "Cảm ơn bạn đã liên hệ. Tôi sẽ kiểm tra thông tin này ngay.",
-  "Bạn có thể cung cấp thêm chi tiết để tôi hỗ trợ tốt hơn không?",
-  "Tôi đã tìm thấy thông tin liên quan. Bạn hãy tham khảo tài liệu hướng dẫn tại mục Help Center nhé.",
-  "Nếu bạn cần hỗ trợ thêm, tôi có thể chuyển bạn đến nhân viên trực tiếp.",
-];
-
 const WidgetPage = () => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [searchParams] = useSearchParams();
+  const orgId = searchParams.get("org");
+
+  const [isOpen, setIsOpen] = useState(!!orgId);
   const [hasSession, setHasSession] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [messages, setMessages] = useState<WidgetMessage[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [orgName, setOrgName] = useState("Echo Support");
+  const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const startSession = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || !email.trim()) return;
-    setHasSession(true);
-    setMessages([
-      {
-        id: "welcome",
-        role: "assistant",
-        content: `Xin chào ${name}! 👋 Tôi là trợ lý AI của Echo. Tôi có thể giúp gì cho bạn hôm nay?`,
-        createdAt: Date.now(),
-      },
-    ]);
+  // Try to restore session on mount
+  useEffect(() => {
+    if (!orgId) return;
+    const storedSessionId = localStorage.getItem(`echo_session_${orgId}`);
+    if (storedSessionId) {
+      restoreSession(storedSessionId);
+    }
+  }, [orgId]);
+
+  // Subscribe to realtime messages
+  useEffect(() => {
+    if (!conversationId) return;
+    
+    // Dynamic import to avoid issues when supabase isn't available
+    import("@/integrations/supabase/client").then(({ supabase }) => {
+      const channel = supabase
+        .channel(`widget-msgs-${conversationId}`)
+        .on("postgres_changes", {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        }, (payload: any) => {
+          const newMsg = payload.new;
+          // Only add if not already in messages (avoid duplicates from our own inserts)
+          setMessages((prev) => {
+            if (prev.some(m => m.id === newMsg.id)) return prev;
+            return [...prev, {
+              id: newMsg.id,
+              role: newMsg.role,
+              content: newMsg.content,
+              created_at: newMsg.created_at,
+            }];
+          });
+          setIsTyping(false);
+        })
+        .subscribe();
+
+      return () => { supabase.removeChannel(channel); };
+    });
+  }, [conversationId]);
+
+  const restoreSession = async (sid: string) => {
+    try {
+      const resp = await fetch(`${FUNC_URL}/widget-session`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ action: "restore", sessionId: sid }),
+      });
+      const data = await resp.json();
+      if (data.valid) {
+        setSessionId(data.sessionId);
+        setConversationId(data.conversationId);
+        setOrgName(data.orgName || "Echo Support");
+        setMessages(data.messages?.map((m: any) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          created_at: m.created_at,
+        })) || []);
+        setHasSession(true);
+      }
+    } catch (e) {
+      console.error("Restore failed:", e);
+    }
   };
 
-  const sendMessage = (e: React.FormEvent) => {
+  const startSession = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!name.trim() || !email.trim() || !orgId) return;
+
+    try {
+      const resp = await fetch(`${FUNC_URL}/widget-session`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          action: "create",
+          organizationId: orgId,
+          name: name.trim(),
+          email: email.trim(),
+          os: navigator.platform,
+          browser: navigator.userAgent.split(" ").pop() || "Unknown",
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        }),
+      });
+
+      const data = await resp.json();
+      if (data.error) {
+        setError(data.error);
+        return;
+      }
+
+      setSessionId(data.sessionId);
+      setConversationId(data.conversationId);
+      setOrgName(data.orgName);
+      setHasSession(true);
+      localStorage.setItem(`echo_session_${orgId}`, data.sessionId);
+
+      // Show greeting
+      if (data.greeting) {
+        setMessages([{
+          id: "greeting",
+          role: "assistant",
+          content: data.greeting.replace("{name}", name),
+          created_at: new Date().toISOString(),
+        }]);
+      }
+    } catch (e) {
+      setError("Không thể kết nối đến server");
+    }
+  };
+
+  const sendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || !sessionId || !conversationId) return;
+
     const userMsg: WidgetMessage = {
-      id: `u-${Date.now()}`,
+      id: `local-${Date.now()}`,
       role: "user",
       content: input,
-      createdAt: Date.now(),
+      created_at: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setIsTyping(true);
 
-    setTimeout(() => {
-      const botMsg: WidgetMessage = {
-        id: `b-${Date.now()}`,
-        role: "assistant",
-        content: botResponses[Math.floor(Math.random() * botResponses.length)],
-        createdAt: Date.now(),
-      };
-      setMessages((prev) => [...prev, botMsg]);
+    try {
+      const resp = await fetch(`${FUNC_URL}/widget-chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          conversationId,
+          sessionId,
+          message: input,
+        }),
+      });
+
+      const data = await resp.json();
+      if (data.error) {
+        setIsTyping(false);
+        setMessages((prev) => [...prev, {
+          id: `err-${Date.now()}`,
+          role: "assistant",
+          content: "Xin lỗi, đã xảy ra lỗi. Vui lòng thử lại.",
+          created_at: new Date().toISOString(),
+        }]);
+        return;
+      }
+
+      // AI response is added via realtime subscription or directly
+      if (data.aiResponse) {
+        // Wait a bit for realtime, fallback to manual add
+        setTimeout(() => {
+          setMessages((prev) => {
+            if (prev.some(m => m.content === data.aiResponse && m.role === "assistant" && m.id !== "greeting")) return prev;
+            return [...prev, {
+              id: `ai-${Date.now()}`,
+              role: "assistant",
+              content: data.aiResponse,
+              created_at: new Date().toISOString(),
+            }];
+          });
+          setIsTyping(false);
+        }, 500);
+      } else {
+        setIsTyping(false);
+      }
+    } catch {
       setIsTyping(false);
-    }, 1200);
+    }
   };
 
   const resetChat = () => {
+    if (orgId) localStorage.removeItem(`echo_session_${orgId}`);
     setHasSession(false);
     setMessages([]);
     setName("");
     setEmail("");
+    setSessionId(null);
+    setConversationId(null);
   };
+
+  if (!orgId) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-foreground mb-2">Echo Widget</h1>
+          <p className="text-muted-foreground mb-4">Cần có Organization ID để sử dụng widget.</p>
+          <p className="text-sm text-muted-foreground">Truy cập: <code className="bg-secondary px-2 py-1 rounded text-xs">/widget?org=YOUR_ORG_ID</code></p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <div className="text-center text-destructive">
+          <h1 className="text-xl font-bold mb-2">Lỗi</h1>
+          <p>{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <div className="text-center text-muted-foreground mb-8">
+      <div className="text-center text-muted-foreground">
         <h1 className="text-2xl font-bold text-foreground mb-2">Echo Widget Demo</h1>
         <p>Nhấn vào nút chat bên dưới để mở widget</p>
       </div>
@@ -114,7 +284,7 @@ const WidgetPage = () => {
             <div className="flex items-center justify-between border-b border-border px-4 py-3 echo-gradient-bg">
               <div className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5 text-primary-foreground" />
-                <span className="font-semibold text-primary-foreground">Echo Support</span>
+                <span className="font-semibold text-primary-foreground">{orgName}</span>
               </div>
               <div className="flex items-center gap-1">
                 {hasSession && (
@@ -135,22 +305,9 @@ const WidgetPage = () => {
                   <h3 className="text-lg font-semibold text-foreground">Chào mừng! 👋</h3>
                   <p className="mt-1 text-sm text-muted-foreground">Nhập thông tin để bắt đầu trò chuyện</p>
                 </div>
-                <Input
-                  placeholder="Tên của bạn"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="bg-secondary border-border"
-                />
-                <Input
-                  type="email"
-                  placeholder="Email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="bg-secondary border-border"
-                />
-                <Button type="submit" className="echo-gradient-bg text-primary-foreground hover:opacity-90">
-                  Bắt đầu chat
-                </Button>
+                <Input placeholder="Tên của bạn" value={name} onChange={(e) => setName(e.target.value)} className="bg-secondary border-border" />
+                <Input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="bg-secondary border-border" />
+                <Button type="submit" className="echo-gradient-bg text-primary-foreground hover:opacity-90">Bắt đầu chat</Button>
               </form>
             ) : (
               <>
@@ -162,13 +319,11 @@ const WidgetPage = () => {
                       animate={{ opacity: 1, y: 0 }}
                       className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                     >
-                      <div
-                        className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
-                          msg.role === "user"
-                            ? "bg-echo-user-bubble text-foreground rounded-br-md"
-                            : "bg-echo-bot-bubble text-foreground rounded-bl-md"
-                        }`}
-                      >
+                      <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
+                        msg.role === "user"
+                          ? "bg-echo-user-bubble text-foreground rounded-br-md"
+                          : "bg-echo-bot-bubble text-foreground rounded-bl-md"
+                      }`}>
                         {msg.content}
                       </div>
                     </motion.div>
@@ -187,13 +342,8 @@ const WidgetPage = () => {
                   <div ref={messagesEndRef} />
                 </div>
                 <form onSubmit={sendMessage} className="flex items-center gap-2 border-t border-border p-3">
-                  <Input
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder="Nhập tin nhắn..."
-                    className="bg-secondary border-border flex-1"
-                  />
-                  <Button type="submit" size="icon" className="echo-gradient-bg text-primary-foreground hover:opacity-90 shrink-0">
+                  <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Nhập tin nhắn..." className="bg-secondary border-border flex-1" />
+                  <Button type="submit" size="icon" disabled={isTyping} className="echo-gradient-bg text-primary-foreground hover:opacity-90 shrink-0">
                     <Send className="h-4 w-4" />
                   </Button>
                 </form>

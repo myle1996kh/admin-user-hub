@@ -1,18 +1,17 @@
-import { Conversation, ContactSession } from "@/data/types";
 import { Globe, Monitor, Mail, Clock, MapPin } from "lucide-react";
 
 interface ContextPanelProps {
-  session: ContactSession;
-  conversation: Conversation;
+  session: any;
+  conversation: any;
 }
 
 export const ContextPanel = ({ session, conversation }: ContextPanelProps) => {
   const details = [
     { icon: Mail, label: "Email", value: session.email },
-    { icon: MapPin, label: "Vị trí", value: session.metadata.location },
-    { icon: Monitor, label: "Thiết bị", value: `${session.metadata.os} · ${session.metadata.browser}` },
-    { icon: Clock, label: "Timezone", value: session.metadata.timezone },
-    { icon: Globe, label: "Session ID", value: session.id },
+    { icon: MapPin, label: "Vị trí", value: session.location || "N/A" },
+    { icon: Monitor, label: "Thiết bị", value: `${session.os || "?"} · ${session.browser || "?"}` },
+    { icon: Clock, label: "Timezone", value: session.timezone || "N/A" },
+    { icon: Globe, label: "Session ID", value: session.id?.slice(0, 8) + "..." },
   ];
 
   return (
@@ -22,16 +21,14 @@ export const ContextPanel = ({ session, conversation }: ContextPanelProps) => {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
-        {/* Avatar */}
         <div className="mb-6 flex flex-col items-center text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-xl font-semibold text-foreground">
-            {session.name.charAt(0)}
+            {session.name?.charAt(0) || "?"}
           </div>
           <p className="mt-2 text-sm font-medium text-foreground">{session.name}</p>
           <p className="text-xs text-muted-foreground">{session.email}</p>
         </div>
 
-        {/* Details */}
         <div className="space-y-4">
           {details.map((d) => (
             <div key={d.label} className="flex items-start gap-3">
@@ -44,7 +41,6 @@ export const ContextPanel = ({ session, conversation }: ContextPanelProps) => {
           ))}
         </div>
 
-        {/* Conversation info */}
         <div className="mt-6 rounded-lg bg-secondary p-3">
           <p className="text-xs font-medium text-muted-foreground mb-2">Trạng thái hội thoại</p>
           <div className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium ${
@@ -57,7 +53,7 @@ export const ContextPanel = ({ session, conversation }: ContextPanelProps) => {
             {conversation.status === "unresolved" ? "AI đang xử lý" : conversation.status === "escalated" ? "Cần hỗ trợ" : "Đã giải quyết"}
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            Bắt đầu: {new Date(conversation.createdAt).toLocaleString("vi-VN")}
+            Bắt đầu: {new Date(conversation.created_at).toLocaleString("vi-VN")}
           </p>
         </div>
       </div>
