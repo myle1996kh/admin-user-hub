@@ -27,8 +27,12 @@ const AdminDashboard = () => {
       navigate("/auth");
       return;
     }
-    // User is logged in but has no org - show waiting screen
-  }, [user, organization, loading, navigate]);
+    // Super admin without org → redirect to super admin page
+    if (!loading && user && !organization && isSuperAdmin) {
+      navigate("/super-admin");
+      return;
+    }
+  }, [user, organization, loading, isSuperAdmin, navigate]);
 
   // Fetch conversations
   useEffect(() => {
@@ -141,7 +145,7 @@ const AdminDashboard = () => {
             Tài khoản của bạn chưa được gán vào tổ chức nào. Vui lòng liên hệ quản trị viên để được thêm vào tổ chức.
           </p>
           <button
-            onClick={signOut}
+            onClick={async () => { await signOut(); navigate("/auth"); }}
             className="text-sm text-muted-foreground hover:text-foreground underline"
           >
             Đăng xuất
