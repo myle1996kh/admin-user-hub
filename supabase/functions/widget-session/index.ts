@@ -15,7 +15,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { action, organizationId, name, email, sessionId, os, browser, location, timezone } = await req.json();
+    const { action, organizationId, name, email, sessionId, os, browser, location, timezone, conversationId: reqConvId, before, limit: reqLimit } = await req.json();
 
     if (action === "create") {
       // Validate org exists
@@ -122,6 +122,35 @@ serve(async (req) => {
         conversationId: conversation.id,
         orgName: org?.name,
         messages: messages || [],
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "load_messages") {
+      // Paginated loading of older messages
+      const pageLimit = reqLimit || 20;
+      let query = supabase
+        .from("messages")
+        .select("*")
+        .eq("conversation_id", reqConvId)
+        .order("created_at", { ascending: false })
+        .limit(pageLimit);
+
+      if (before) {
+        query = query.lt("created_at", before);
+      }
+
+      const { data: msgs, error: msgErr } = await query;
+      if (msgErr) {
+        return new Response(JSON.stringify({ error: "Failed to load messages" }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({
+        messages: (msgs || []).reverse(),
+        hasMore: (msgs || []).length === pageLimit,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
