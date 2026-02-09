@@ -1,38 +1,39 @@
-import { Conversation, ContactSession, ConversationStatus } from "@/data/types";
-import { AlertCircle, CheckCircle2, Clock } from "lucide-react";
-
 interface InboxListProps {
-  conversations: Conversation[];
-  sessions: ContactSession[];
+  conversations: any[];
+  sessions: any[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-  statusFilter: ConversationStatus | "all";
-  onStatusFilterChange: (status: ConversationStatus | "all") => void;
+  statusFilter: string;
+  onStatusFilterChange: (status: string) => void;
 }
 
-const statusTabs: { id: ConversationStatus | "all"; label: string }[] = [
+const statusTabs = [
   { id: "all", label: "Tất cả" },
   { id: "unresolved", label: "Chờ xử lý" },
   { id: "escalated", label: "Cần hỗ trợ" },
   { id: "resolved", label: "Đã xong" },
 ];
 
-const statusConfig: Record<ConversationStatus, { icon: typeof Clock; className: string }> = {
+import { AlertCircle, CheckCircle2, Clock } from "lucide-react";
+
+const statusConfig: Record<string, { icon: typeof Clock; className: string }> = {
   unresolved: { icon: Clock, className: "text-echo-warning" },
   escalated: { icon: AlertCircle, className: "text-echo-escalated" },
   resolved: { icon: CheckCircle2, className: "text-echo-success" },
 };
 
-const getFlag = (timezone: string) => {
+const getFlag = (timezone: string | null) => {
+  if (!timezone) return "🌍";
   if (timezone.includes("Ho_Chi_Minh")) return "🇻🇳";
   if (timezone.includes("Los_Angeles") || timezone.includes("New_York")) return "🇺🇸";
   if (timezone.includes("Madrid")) return "🇪🇸";
   if (timezone.includes("London")) return "🇬🇧";
+  if (timezone.includes("Tokyo")) return "🇯🇵";
   return "🌍";
 };
 
-const timeAgo = (ts: number) => {
-  const diff = Date.now() - ts;
+const timeAgo = (ts: string) => {
+  const diff = Date.now() - new Date(ts).getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return "vừa xong";
   if (mins < 60) return `${mins}p`;
@@ -51,13 +52,11 @@ export const InboxList = ({
 }: InboxListProps) => {
   return (
     <div className="flex h-full w-80 flex-col border-r border-border bg-card">
-      {/* Header */}
       <div className="border-b border-border p-4">
         <h2 className="text-lg font-semibold text-foreground">Inbox</h2>
         <p className="text-xs text-muted-foreground mt-0.5">{conversations.length} hội thoại</p>
       </div>
 
-      {/* Filters */}
       <div className="flex gap-1 border-b border-border p-2">
         {statusTabs.map((tab) => (
           <button
@@ -74,12 +73,17 @@ export const InboxList = ({
         ))}
       </div>
 
-      {/* List */}
       <div className="flex-1 overflow-y-auto">
-        {conversations.map((conv) => {
-          const session = sessions.find((s) => s.id === conv.contactSessionId);
+        {conversations.length === 0 && (
+          <div className="p-4 text-center text-sm text-muted-foreground">
+            Chưa có hội thoại nào
+          </div>
+        )}
+        {conversations.map((conv: any) => {
+          const session = sessions.find((s: any) => s.id === conv.contact_session_id);
           if (!session) return null;
-          const { icon: StatusIcon, className: statusClass } = statusConfig[conv.status];
+          const config = statusConfig[conv.status] || statusConfig.unresolved;
+          const StatusIcon = config.icon;
 
           return (
             <button
@@ -90,19 +94,19 @@ export const InboxList = ({
               }`}
             >
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-foreground">
-                {session.name.charAt(0)}
+                {session.name?.charAt(0) || "?"}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-foreground truncate">
-                    {getFlag(session.metadata.timezone)} {session.name}
+                    {getFlag(session.timezone)} {session.name}
                   </span>
-                  <span className="text-xs text-muted-foreground shrink-0">{timeAgo(conv.updatedAt)}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">{timeAgo(conv.updated_at)}</span>
                 </div>
-                <p className="mt-0.5 text-xs text-muted-foreground truncate">{conv.lastMessage}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground truncate">{conv.last_message || "Chưa có tin nhắn"}</p>
                 <div className="mt-1 flex items-center gap-1">
-                  <StatusIcon className={`h-3 w-3 ${statusClass}`} />
-                  <span className={`text-[10px] font-medium ${statusClass}`}>
+                  <StatusIcon className={`h-3 w-3 ${config.className}`} />
+                  <span className={`text-[10px] font-medium ${config.className}`}>
                     {conv.status === "unresolved" ? "AI đang xử lý" : conv.status === "escalated" ? "Cần hỗ trợ" : "Đã giải quyết"}
                   </span>
                 </div>
