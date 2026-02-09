@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield, Building2, Users, Trash2, Search, ArrowLeft, Crown, Eye, X, MessageSquare } from "lucide-react";
+import { Shield, Building2, Users, Trash2, Search, ArrowLeft, Eye, X, MessageSquare, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +29,9 @@ const SuperAdminPage = () => {
   const [search, setSearch] = useState("");
   const [loadingData, setLoadingData] = useState(true);
   const [selectedOrg, setSelectedOrg] = useState<OrgWithStats | null>(null);
+  const [showCreateOrg, setShowCreateOrg] = useState(false);
+  const [newOrgName, setNewOrgName] = useState("");
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) { navigate("/auth"); return; }
@@ -56,6 +59,28 @@ const SuperAdminPage = () => {
       conversationCount: conversations?.filter((c: any) => c.organization_id === org.id).length || 0,
     })));
     setLoadingData(false);
+  };
+
+  const createOrg = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newOrgName.trim()) return;
+    setCreating(true);
+
+    const { data: org, error } = await supabase
+      .from("organizations")
+      .insert({ name: newOrgName.trim() })
+      .select()
+      .single();
+
+    if (error) {
+      toast.error("Lỗi: " + error.message);
+    } else {
+      toast.success(`Đã tạo tổ chức "${org.name}"`);
+      setNewOrgName("");
+      setShowCreateOrg(false);
+      fetchOrgs();
+    }
+    setCreating(false);
   };
 
   const deleteOrg = async (orgId: string, orgName: string) => {
@@ -94,11 +119,30 @@ const SuperAdminPage = () => {
             <span className="font-semibold text-foreground">Super Admin</span>
           </div>
           <div className="flex gap-1">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowCreateOrg(!showCreateOrg)}>
+              <Plus className="h-4 w-4" />
+            </Button>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/admin")}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </div>
         </div>
+
+        {/* Create Org Form */}
+        {showCreateOrg && (
+          <form onSubmit={createOrg} className="p-3 border-b border-border flex gap-2">
+            <Input
+              placeholder="Tên tổ chức mới..."
+              value={newOrgName}
+              onChange={(e) => setNewOrgName(e.target.value)}
+              className="h-9 text-sm bg-secondary border-border"
+              autoFocus
+            />
+            <Button type="submit" size="sm" disabled={creating} className="shrink-0 echo-gradient-bg text-primary-foreground">
+              {creating ? "..." : "Tạo"}
+            </Button>
+          </form>
+        )}
 
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-2 p-3 border-b border-border">

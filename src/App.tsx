@@ -6,7 +6,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import Landing from "./pages/Landing";
 import AuthPage from "./pages/AuthPage";
-import OnboardingPage from "./pages/OnboardingPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import SuperAdminPage from "./pages/SuperAdminPage";
 import WidgetPage from "./pages/WidgetPage";
@@ -24,7 +23,6 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/auth" element={<AuthPage />} />
-            <Route path="/onboarding" element={<OnboardingPage />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/super-admin" element={<SuperAdminPage />} />
             <Route path="/widget" element={<WidgetPage />} />
