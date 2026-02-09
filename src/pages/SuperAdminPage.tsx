@@ -1,14 +1,18 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield, Building2, Users, Trash2, Search, ArrowLeft, Crown } from "lucide-react";
+import { Shield, Building2, Users, Trash2, Search, ArrowLeft, Crown, Eye, X, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { OrgMembers } from "@/components/admin/super/OrgMembers";
+import { OrgSettings } from "@/components/admin/super/OrgSettings";
+import { OrgConversations } from "@/components/admin/super/OrgConversations";
 
-interface OrgWithMembers {
+interface OrgWithStats {
   id: string;
   name: string;
   created_at: string;
@@ -21,19 +25,14 @@ interface OrgWithMembers {
 const SuperAdminPage = () => {
   const { user, loading, isSuperAdmin, signOut } = useAuth();
   const navigate = useNavigate();
-  const [orgs, setOrgs] = useState<OrgWithMembers[]>([]);
+  const [orgs, setOrgs] = useState<OrgWithStats[]>([]);
   const [search, setSearch] = useState("");
   const [loadingData, setLoadingData] = useState(true);
+  const [selectedOrg, setSelectedOrg] = useState<OrgWithStats | null>(null);
 
   useEffect(() => {
-    if (!loading && !user) {
-      navigate("/auth");
-      return;
-    }
-    if (!loading && user && !isSuperAdmin) {
-      navigate("/admin");
-      return;
-    }
+    if (!loading && !user) { navigate("/auth"); return; }
+    if (!loading && user && !isSuperAdmin) { navigate("/admin"); return; }
   }, [user, loading, isSuperAdmin, navigate]);
 
   useEffect(() => {
@@ -43,51 +42,35 @@ const SuperAdminPage = () => {
 
   const fetchOrgs = async () => {
     setLoadingData(true);
-    const { data: organizations } = await supabase
-      .from("organizations")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const [{ data: organizations }, { data: memberships }, { data: conversations }] = await Promise.all([
+      supabase.from("organizations").select("*").order("created_at", { ascending: false }),
+      supabase.from("organization_memberships").select("organization_id"),
+      supabase.from("conversations").select("organization_id"),
+    ]);
 
-    if (!organizations) {
-      setLoadingData(false);
-      return;
-    }
+    if (!organizations) { setLoadingData(false); return; }
 
-    // Fetch member counts
-    const { data: memberships } = await supabase
-      .from("organization_memberships")
-      .select("organization_id");
-
-    // Fetch conversation counts
-    const { data: conversations } = await supabase
-      .from("conversations")
-      .select("organization_id");
-
-    const enriched: OrgWithMembers[] = organizations.map((org) => ({
+    setOrgs(organizations.map((org) => ({
       ...org,
       memberCount: memberships?.filter((m: any) => m.organization_id === org.id).length || 0,
       conversationCount: conversations?.filter((c: any) => c.organization_id === org.id).length || 0,
-    }));
-
-    setOrgs(enriched);
+    })));
     setLoadingData(false);
   };
 
   const deleteOrg = async (orgId: string, orgName: string) => {
     if (!confirm(`Xóa tổ chức "${orgName}"? Hành động này không thể hoàn tác.`)) return;
-
     const { error } = await supabase.from("organizations").delete().eq("id", orgId);
-    if (error) {
-      toast.error("Lỗi: " + error.message);
-    } else {
+    if (error) { toast.error("Lỗi: " + error.message); }
+    else {
       toast.success("Đã xóa tổ chức");
+      if (selectedOrg?.id === orgId) setSelectedOrg(null);
       fetchOrgs();
     }
   };
 
   const filteredOrgs = orgs.filter((o) =>
-    o.name.toLowerCase().includes(search.toLowerCase()) ||
-    o.id.toLowerCase().includes(search.toLowerCase())
+    o.name.toLowerCase().includes(search.toLowerCase()) || o.id.includes(search.toLowerCase())
   );
 
   if (loading || !isSuperAdmin) {
@@ -99,129 +82,139 @@ const SuperAdminPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card px-6 py-4">
-        <div className="mx-auto flex max-w-6xl items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-destructive/10">
-              <Shield className="h-5 w-5 text-destructive" />
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold text-foreground">Super Admin</h1>
-              <p className="text-xs text-muted-foreground">Quản lý toàn bộ hệ thống</p>
-            </div>
-          </div>
+    <div className="flex h-screen overflow-hidden bg-background">
+      {/* Left: Org List */}
+      <div className={`flex flex-col border-r border-border ${selectedOrg ? "w-96" : "flex-1"} transition-all`}>
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => navigate("/admin")}>
-              <ArrowLeft className="mr-1 h-4 w-4" /> Dashboard
-            </Button>
-            <Button variant="outline" size="sm" onClick={signOut} className="text-destructive">
-              Đăng xuất
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/10">
+              <Shield className="h-4 w-4 text-destructive" />
+            </div>
+            <span className="font-semibold text-foreground">Super Admin</span>
+          </div>
+          <div className="flex gap-1">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/admin")}>
+              <ArrowLeft className="h-4 w-4" />
             </Button>
           </div>
         </div>
-      </header>
 
-      <main className="mx-auto max-w-6xl p-6 space-y-6">
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="rounded-xl border border-border bg-card p-5">
-            <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
-              <Building2 className="h-4 w-4" /> Tổ chức
-            </div>
-            <p className="text-2xl font-bold text-foreground">{orgs.length}</p>
+        {/* Stats row */}
+        <div className="grid grid-cols-3 gap-2 p-3 border-b border-border">
+          <div className="rounded-lg bg-card border border-border p-3 text-center">
+            <Building2 className="h-3.5 w-3.5 mx-auto text-muted-foreground mb-1" />
+            <p className="text-lg font-bold text-foreground">{orgs.length}</p>
+            <p className="text-[10px] text-muted-foreground">Tổ chức</p>
           </div>
-          <div className="rounded-xl border border-border bg-card p-5">
-            <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
-              <Users className="h-4 w-4" /> Thành viên
-            </div>
-            <p className="text-2xl font-bold text-foreground">
-              {orgs.reduce((sum, o) => sum + o.memberCount, 0)}
-            </p>
+          <div className="rounded-lg bg-card border border-border p-3 text-center">
+            <Users className="h-3.5 w-3.5 mx-auto text-muted-foreground mb-1" />
+            <p className="text-lg font-bold text-foreground">{orgs.reduce((s, o) => s + o.memberCount, 0)}</p>
+            <p className="text-[10px] text-muted-foreground">Thành viên</p>
           </div>
-          <div className="rounded-xl border border-border bg-card p-5">
-            <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
-              <Crown className="h-4 w-4" /> Hội thoại
-            </div>
-            <p className="text-2xl font-bold text-foreground">
-              {orgs.reduce((sum, o) => sum + o.conversationCount, 0)}
-            </p>
+          <div className="rounded-lg bg-card border border-border p-3 text-center">
+            <MessageSquare className="h-3.5 w-3.5 mx-auto text-muted-foreground mb-1" />
+            <p className="text-lg font-bold text-foreground">{orgs.reduce((s, o) => s + o.conversationCount, 0)}</p>
+            <p className="text-[10px] text-muted-foreground">Hội thoại</p>
           </div>
         </div>
 
         {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Tìm tổ chức..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 bg-card border-border"
-          />
+        <div className="p-3 border-b border-border">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Tìm tổ chức..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-9 pl-9 text-sm bg-secondary border-border"
+            />
+          </div>
         </div>
 
-        {/* Org list */}
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                <th className="px-4 py-3 font-medium">Tổ chức</th>
-                <th className="px-4 py-3 font-medium">ID</th>
-                <th className="px-4 py-3 font-medium text-center">Thành viên</th>
-                <th className="px-4 py-3 font-medium text-center">Hội thoại</th>
-                <th className="px-4 py-3 font-medium">Ngày tạo</th>
-                <th className="px-4 py-3 font-medium text-right">Hành động</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loadingData ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                    Đang tải...
-                  </td>
-                </tr>
-              ) : filteredOrgs.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                    Không có tổ chức nào
-                  </td>
-                </tr>
-              ) : (
-                filteredOrgs.map((org) => (
-                  <tr key={org.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-3">
-                      <span className="font-medium text-foreground">{org.name}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <code className="text-xs text-muted-foreground font-mono">{org.id.slice(0, 8)}...</code>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <Badge variant="secondary">{org.memberCount}</Badge>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <Badge variant="outline">{org.conversationCount}</Badge>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {new Date(org.created_at).toLocaleDateString("vi-VN")}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteOrg(org.id, org.name)}
-                        className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        {/* List */}
+        <div className="flex-1 overflow-y-auto">
+          {loadingData ? (
+            <p className="p-4 text-center text-sm text-muted-foreground">Đang tải...</p>
+          ) : filteredOrgs.length === 0 ? (
+            <p className="p-4 text-center text-sm text-muted-foreground">Không có tổ chức nào</p>
+          ) : (
+            filteredOrgs.map((org) => (
+              <div
+                key={org.id}
+                onClick={() => setSelectedOrg(org)}
+                className={`flex items-center justify-between border-b border-border/50 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/30 ${
+                  selectedOrg?.id === org.id ? "bg-muted/50" : ""
+                }`}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-sm text-foreground truncate">{org.name}</p>
+                  <div className="flex items-center gap-3 mt-0.5">
+                    <span className="text-[11px] text-muted-foreground">{org.memberCount} members</span>
+                    <span className="text-[11px] text-muted-foreground">{org.conversationCount} convos</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 ml-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={(e) => { e.stopPropagation(); setSelectedOrg(org); }}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                    onClick={(e) => { e.stopPropagation(); deleteOrg(org.id, org.name); }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
         </div>
-      </main>
+      </div>
+
+      {/* Right: Org Detail */}
+      {selectedOrg ? (
+        <div className="flex flex-1 flex-col overflow-hidden">
+          {/* Detail header */}
+          <div className="flex items-center justify-between border-b border-border px-6 py-3">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">{selectedOrg.name}</h2>
+              <p className="text-xs text-muted-foreground font-mono">{selectedOrg.id}</p>
+            </div>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedOrg(null)}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Tabs */}
+          <Tabs defaultValue="members" className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="mx-6 mt-4 w-fit">
+              <TabsTrigger value="members">Thành viên</TabsTrigger>
+              <TabsTrigger value="conversations">Hội thoại</TabsTrigger>
+              <TabsTrigger value="settings">Cài đặt</TabsTrigger>
+            </TabsList>
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              <TabsContent value="members" className="mt-0">
+                <OrgMembers organizationId={selectedOrg.id} />
+              </TabsContent>
+              <TabsContent value="conversations" className="mt-0">
+                <OrgConversations organizationId={selectedOrg.id} />
+              </TabsContent>
+              <TabsContent value="settings" className="mt-0">
+                <OrgSettings organization={selectedOrg} onUpdated={fetchOrgs} />
+              </TabsContent>
+            </div>
+          </Tabs>
+        </div>
+      ) : (
+        <div className="hidden" />
+      )}
     </div>
   );
 };
