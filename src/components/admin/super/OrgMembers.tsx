@@ -57,7 +57,7 @@ export const OrgMembers = ({ organizationId }: OrgMembersProps) => {
     fetchMembers();
   }, [organizationId]);
 
-  const changeRole = async (membershipId: string, newRole: string) => {
+  const changeRole = async (membershipId: string, newRole: "admin" | "member") => {
     const { error } = await supabase
       .from("organization_memberships")
       .update({ role: newRole })
