@@ -1,5 +1,6 @@
-import { MessageSquare, Inbox, BookOpen, Settings, LogOut } from "lucide-react";
+import { MessageSquare, Inbox, BookOpen, Settings, LogOut, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 interface AdminSidebarProps {
   activeTab: "inbox" | "knowledge" | "settings";
@@ -13,6 +14,7 @@ const navItems = [
 ];
 
 export const AdminSidebar = ({ activeTab, onTabChange }: AdminSidebarProps) => {
+  const { isSuperAdmin } = useAuth();
   return (
     <div className="flex h-full w-16 flex-col items-center border-r border-border bg-sidebar py-4 lg:w-56">
       {/* Logo */}
@@ -42,13 +44,24 @@ export const AdminSidebar = ({ activeTab, onTabChange }: AdminSidebarProps) => {
       </nav>
 
       {/* Bottom */}
-      <Link
-        to="/"
-        className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent mx-2 w-[calc(100%-1rem)]"
-      >
-        <LogOut className="h-5 w-5 shrink-0" />
-        <span className="hidden lg:block">Thoát</span>
-      </Link>
+      <div className="flex flex-col gap-1 mx-2 w-[calc(100%-1rem)]">
+        {isSuperAdmin && (
+          <Link
+            to="/super-admin"
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-destructive hover:bg-destructive/10"
+          >
+            <Shield className="h-5 w-5 shrink-0" />
+            <span className="hidden lg:block">Super Admin</span>
+          </Link>
+        )}
+        <Link
+          to="/"
+          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent"
+        >
+          <LogOut className="h-5 w-5 shrink-0" />
+          <span className="hidden lg:block">Thoát</span>
+        </Link>
+      </div>
     </div>
   );
 };
