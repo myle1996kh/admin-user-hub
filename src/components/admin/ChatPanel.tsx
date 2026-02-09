@@ -1,25 +1,77 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
+import { Send, Sparkles, CheckCircle2, AlertCircle, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+interface OrgMember {
+  user_id: string;
+  role: string;
+  profile?: { id: string; full_name: string; email: string };
+}
 
 interface ChatPanelProps {
   conversation: any;
   session: any;
   messages: any[];
+  organizationId: string;
 }
 
 const formatTime = (ts: string) => {
   return new Date(ts).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
 };
 
-export const ChatPanel = ({ conversation, session, messages }: ChatPanelProps) => {
+export const ChatPanel = ({ conversation, session, messages, organizationId }: ChatPanelProps) => {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [enhancing, setEnhancing] = useState(false);
+  const [members, setMembers] = useState<OrgMember[]>([]);
+  const [assigning, setAssigning] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Fetch org members for assignment dropdown
+  useEffect(() => {
+    const fetchMembers = async () => {
+      const { data } = await supabase
+        .from("organization_memberships")
+        .select("user_id, role")
+        .eq("organization_id", organizationId);
+      if (!data) return;
+
+      // Fetch profiles for each member
+      const userIds = data.map((m) => m.user_id);
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", userIds);
+
+      setMembers(
+        data.map((m) => ({
+          ...m,
+          profile: profiles?.find((p) => p.id === m.user_id),
+        }))
+      );
+    };
+    fetchMembers();
+  }, [organizationId]);
+
+  const assignConversation = async (userId: string) => {
+    setAssigning(true);
+    const assignValue = userId === "unassigned" ? null : userId;
+    const { error } = await supabase
+      .from("conversations")
+      .update({ assigned_to: assignValue } as any)
+      .eq("id", conversation.id);
+    if (error) {
+      toast.error("Không thể gán nhân viên");
+    } else {
+      const member = members.find((m) => m.user_id === userId);
+      toast.success(userId === "unassigned" ? "Đã bỏ gán" : `Đã gán cho ${member?.profile?.full_name || "nhân viên"}`);
+    }
+    setAssigning(false);
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -103,6 +155,26 @@ export const ChatPanel = ({ conversation, session, messages }: ChatPanelProps) =
           <p className="text-xs text-muted-foreground">{session.email}</p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Assignment dropdown */}
+          <Select
+            value={(conversation as any).assigned_to || "unassigned"}
+            onValueChange={assignConversation}
+            disabled={assigning}
+          >
+            <SelectTrigger className="w-[160px] h-8 text-xs border-border">
+              <UserPlus className="h-3.5 w-3.5 mr-1 shrink-0" />
+              <SelectValue placeholder="Gán nhân viên" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="unassigned">Chưa gán</SelectItem>
+              {members.map((m) => (
+                <SelectItem key={m.user_id} value={m.user_id}>
+                  {m.profile?.full_name || m.profile?.email || "Unknown"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           {conversation.status !== "resolved" && (
             <Button
               size="sm"

@@ -19,6 +19,7 @@ const AdminDashboard = () => {
   const [conversations, setConversations] = useState<any[]>([]);
   const [sessions, setSessions] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
+  const [members, setMembers] = useState<any[]>([]);
 
   const isAdmin = membership?.role === "admin";
 
@@ -47,7 +48,6 @@ const AdminDashboard = () => {
 
       if (convs) {
         setConversations(convs);
-        // Fetch sessions for those conversations
         const sessionIds = [...new Set(convs.map((c: any) => c.contact_session_id))];
         if (sessionIds.length > 0) {
           const { data: sessData } = await supabase
@@ -59,7 +59,27 @@ const AdminDashboard = () => {
       }
     };
 
+    const fetchMembers = async () => {
+      const { data } = await supabase
+        .from("organization_memberships")
+        .select("user_id, role")
+        .eq("organization_id", organization.id);
+      if (!data) return;
+      const userIds = data.map((m: any) => m.user_id);
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", userIds);
+      setMembers(
+        data.map((m: any) => ({
+          ...m,
+          profile: profiles?.find((p: any) => p.id === m.user_id),
+        }))
+      );
+    };
+
     fetchData();
+    fetchMembers();
 
     // Realtime subscription for conversations
     const channel = supabase
@@ -168,6 +188,7 @@ const AdminDashboard = () => {
             onSelect={setSelectedConversationId}
             statusFilter={statusFilter}
             onStatusFilterChange={setStatusFilter}
+            members={members}
           />
           
           {selectedConversation && selectedSession ? (
@@ -176,6 +197,7 @@ const AdminDashboard = () => {
                 conversation={selectedConversation}
                 session={selectedSession}
                 messages={messages}
+                organizationId={organization.id}
               />
               <ContextPanel session={selectedSession} conversation={selectedConversation} />
             </>

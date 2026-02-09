@@ -5,6 +5,7 @@ interface InboxListProps {
   onSelect: (id: string) => void;
   statusFilter: string;
   onStatusFilterChange: (status: string) => void;
+  members?: { user_id: string; profile?: { full_name: string; email: string } }[];
 }
 
 const statusTabs = [
@@ -49,6 +50,7 @@ export const InboxList = ({
   onSelect,
   statusFilter,
   onStatusFilterChange,
+  members = [],
 }: InboxListProps) => {
   return (
     <div className="flex h-full w-80 flex-col border-r border-border bg-card">
@@ -104,11 +106,21 @@ export const InboxList = ({
                   <span className="text-xs text-muted-foreground shrink-0">{timeAgo(conv.updated_at)}</span>
                 </div>
                 <p className="mt-0.5 text-xs text-muted-foreground truncate">{conv.last_message || "Chưa có tin nhắn"}</p>
-                <div className="mt-1 flex items-center gap-1">
-                  <StatusIcon className={`h-3 w-3 ${config.className}`} />
-                  <span className={`text-[10px] font-medium ${config.className}`}>
-                    {conv.status === "unresolved" ? "AI đang xử lý" : conv.status === "escalated" ? "Cần hỗ trợ" : "Đã giải quyết"}
-                  </span>
+                <div className="mt-1 flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <StatusIcon className={`h-3 w-3 ${config.className}`} />
+                    <span className={`text-[10px] font-medium ${config.className}`}>
+                      {conv.status === "unresolved" ? "AI đang xử lý" : conv.status === "escalated" ? "Cần hỗ trợ" : "Đã giải quyết"}
+                    </span>
+                  </div>
+                  {(conv as any).assigned_to && (() => {
+                    const assigned = members.find((m) => m.user_id === (conv as any).assigned_to);
+                    return assigned ? (
+                      <span className="text-[10px] text-muted-foreground truncate">
+                        · {assigned.profile?.full_name || assigned.profile?.email || "Agent"}
+                      </span>
+                    ) : null;
+                  })()}
                 </div>
               </div>
             </button>
