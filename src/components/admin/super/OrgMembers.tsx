@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { UserPlus, Trash2, Crown, User } from "lucide-react";
+import { UserPlus, Trash2, Crown, User, Headphones } from "lucide-react";
 
 interface Member {
   id: string;
@@ -57,10 +57,10 @@ export const OrgMembers = ({ organizationId }: OrgMembersProps) => {
     fetchMembers();
   }, [organizationId]);
 
-  const changeRole = async (membershipId: string, newRole: "admin" | "member") => {
+  const changeRole = async (membershipId: string, newRole: "admin" | "member" | "supporter") => {
     const { error } = await supabase
       .from("organization_memberships")
-      .update({ role: newRole })
+      .update({ role: newRole } as any)
       .eq("id", membershipId);
 
     if (error) {
@@ -69,6 +69,16 @@ export const OrgMembers = ({ organizationId }: OrgMembersProps) => {
       toast.success("Đã cập nhật role");
       fetchMembers();
     }
+  };
+
+  /** Cycle: member → supporter → admin → member */
+  const cycleRole = (m: Member) => {
+    const next: Record<string, "admin" | "member" | "supporter"> = {
+      member: "supporter",
+      supporter: "admin",
+      admin: "member",
+    };
+    changeRole(m.id, next[m.role] ?? "member");
   };
 
   const removeMember = async (membershipId: string, name: string) => {
@@ -167,6 +177,8 @@ export const OrgMembers = ({ organizationId }: OrgMembersProps) => {
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
                   {m.role === "admin" ? (
                     <Crown className="h-4 w-4 text-primary" />
+                  ) : m.role === "supporter" ? (
+                    <Headphones className="h-4 w-4 text-blue-500" />
                   ) : (
                     <User className="h-4 w-4 text-muted-foreground" />
                   )}
@@ -180,11 +192,18 @@ export const OrgMembers = ({ organizationId }: OrgMembersProps) => {
               </div>
               <div className="flex items-center gap-2">
                 <Badge
-                  variant={m.role === "admin" ? "default" : "secondary"}
-                  className="cursor-pointer"
-                  onClick={() => changeRole(m.id, m.role === "admin" ? "member" : "admin")}
+                  variant={
+                    m.role === "admin"
+                      ? "default"
+                      : m.role === "supporter"
+                      ? "outline"
+                      : "secondary"
+                  }
+                  className="cursor-pointer select-none"
+                  title="Click để đổi role: member → supporter → admin → member"
+                  onClick={() => cycleRole(m)}
                 >
-                  {m.role}
+                  {m.role === "supporter" ? "supporter" : m.role}
                 </Badge>
                 <Button
                   variant="ghost"

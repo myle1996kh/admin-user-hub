@@ -1,22 +1,45 @@
-import { MessageSquare, Inbox, BookOpen, Settings, LogOut, Shield } from "lucide-react";
+import { MessageSquare, Inbox, BookOpen, Settings, LogOut, Shield, Headphones, Wrench } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
+export type AdminTab = "inbox" | "support" | "knowledge" | "tools" | "settings";
+
 interface AdminSidebarProps {
-  activeTab: "inbox" | "knowledge" | "settings";
-  onTabChange: (tab: "inbox" | "knowledge" | "settings") => void;
+  activeTab: AdminTab;
+  onTabChange: (tab: AdminTab) => void;
   isAdmin?: boolean;
+  isSupporter?: boolean;
 }
 
-const allNavItems = [
-  { id: "inbox" as const, icon: Inbox, label: "Inbox", adminOnly: false },
-  { id: "knowledge" as const, icon: BookOpen, label: "Knowledge Base", adminOnly: true },
-  { id: "settings" as const, icon: Settings, label: "Settings", adminOnly: true },
+const allNavItems: {
+  id: AdminTab;
+  icon: typeof Inbox;
+  label: string;
+  adminOnly: boolean;
+  supporterVisible: boolean;
+}[] = [
+  { id: "inbox",     icon: Inbox,       label: "Inbox",         adminOnly: false, supporterVisible: true  },
+  { id: "support",   icon: Headphones,  label: "Hỗ trợ",        adminOnly: false, supporterVisible: true  },
+  { id: "knowledge", icon: BookOpen,    label: "Knowledge Base", adminOnly: true,  supporterVisible: false },
+  { id: "tools",     icon: Wrench,      label: "API Tools",      adminOnly: true,  supporterVisible: false },
+  { id: "settings",  icon: Settings,    label: "Cài đặt",        adminOnly: true,  supporterVisible: false },
 ];
 
-export const AdminSidebar = ({ activeTab, onTabChange, isAdmin = false }: AdminSidebarProps) => {
+export const AdminSidebar = ({
+  activeTab,
+  onTabChange,
+  isAdmin = false,
+  isSupporter = false,
+}: AdminSidebarProps) => {
   const { isSuperAdmin } = useAuth();
-  const navItems = allNavItems.filter((item) => !item.adminOnly || isAdmin);
+
+  const navItems = allNavItems.filter((item) => {
+    if (isAdmin) return true;
+    if (isSupporter) return item.supporterVisible;
+    // plain member: only inbox
+    return item.id === "inbox";
+  });
+
   return (
     <div className="flex h-full w-16 flex-col items-center border-r border-border bg-sidebar py-4 lg:w-56">
       {/* Logo */}

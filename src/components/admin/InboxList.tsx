@@ -1,3 +1,6 @@
+import type { ReactNode } from "react";
+import { AlertCircle, CheckCircle2, Clock, Timer, UserCheck } from "lucide-react";
+
 interface InboxListProps {
   conversations: any[];
   sessions: any[];
@@ -6,21 +9,27 @@ interface InboxListProps {
   statusFilter: string;
   onStatusFilterChange: (status: string) => void;
   members?: { user_id: string; profile?: { full_name: string; email: string } }[];
+  hideHeader?: boolean;
+  headerContent?: ReactNode;
+  /** Subset of status tabs to show — defaults to all */
+  visibleStatuses?: string[];
 }
 
-const statusTabs = [
-  { id: "all", label: "Tất cả" },
-  { id: "unresolved", label: "Chờ xử lý" },
-  { id: "escalated", label: "Cần hỗ trợ" },
-  { id: "resolved", label: "Đã xong" },
+const ALL_STATUS_TABS = [
+  { id: "all",        label: "Tất cả"       },
+  { id: "unresolved", label: "Chờ xử lý"    },
+  { id: "escalated",  label: "Cần hỗ trợ"   },
+  { id: "queued",     label: "Hàng chờ"     },
+  { id: "assigned",   label: "Đang xử lý"   },
+  { id: "resolved",   label: "Đã xong"      },
 ];
 
-import { AlertCircle, CheckCircle2, Clock } from "lucide-react";
-
-const statusConfig: Record<string, { icon: typeof Clock; className: string }> = {
-  unresolved: { icon: Clock, className: "text-echo-warning" },
-  escalated: { icon: AlertCircle, className: "text-echo-escalated" },
-  resolved: { icon: CheckCircle2, className: "text-echo-success" },
+const statusConfig: Record<string, { icon: typeof Clock; className: string; label: string }> = {
+  unresolved: { icon: Clock,        className: "text-echo-warning",   label: "AI đang xử lý"  },
+  escalated:  { icon: AlertCircle,  className: "text-echo-escalated", label: "Cần hỗ trợ"     },
+  queued:     { icon: Timer,        className: "text-amber-500",      label: "Đang chờ"       },
+  assigned:   { icon: UserCheck,    className: "text-blue-500",       label: "Đang xử lý"     },
+  resolved:   { icon: CheckCircle2, className: "text-echo-success",   label: "Đã giải quyết"  },
 };
 
 const getFlag = (timezone: string | null) => {
@@ -51,20 +60,30 @@ export const InboxList = ({
   statusFilter,
   onStatusFilterChange,
   members = [],
+  hideHeader = false,
+  headerContent,
+  visibleStatuses,
 }: InboxListProps) => {
+  const statusTabs = visibleStatuses
+    ? ALL_STATUS_TABS.filter((t) => t.id === "all" || visibleStatuses.includes(t.id))
+    : ALL_STATUS_TABS;
+
   return (
     <div className="flex h-full w-80 flex-col border-r border-border bg-card">
-      <div className="border-b border-border p-4">
-        <h2 className="text-lg font-semibold text-foreground">Inbox</h2>
-        <p className="text-xs text-muted-foreground mt-0.5">{conversations.length} hội thoại</p>
-      </div>
+      {headerContent ?? (!hideHeader && (
+        <div className="border-b border-border p-4">
+          <h2 className="text-lg font-semibold text-foreground">Inbox</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">{conversations.length} hội thoại</p>
+        </div>
+      ))}
 
-      <div className="flex gap-1 border-b border-border p-2">
+      {/* Status filter tabs — horizontal scroll for small widths */}
+      <div className="flex gap-1 border-b border-border p-2 overflow-x-auto">
         {statusTabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => onStatusFilterChange(tab.id)}
-            className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+            className={`shrink-0 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
               statusFilter === tab.id
                 ? "bg-secondary text-foreground"
                 : "text-muted-foreground hover:text-foreground"
@@ -84,8 +103,13 @@ export const InboxList = ({
         {conversations.map((conv: any) => {
           const session = sessions.find((s: any) => s.id === conv.contact_session_id);
           if (!session) return null;
-          const config = statusConfig[conv.status] || statusConfig.unresolved;
-          const StatusIcon = config.icon;
+          const cfg = statusConfig[conv.status] ?? statusConfig.unresolved;
+          const StatusIcon = cfg.icon;
+
+          // Find assigned supporter name
+          const assignedSupporter = conv.assigned_supporter_id
+            ? members.find((m) => m.user_id === conv.assigned_supporter_id)
+            : null;
 
           return (
             <button
@@ -106,21 +130,16 @@ export const InboxList = ({
                   <span className="text-xs text-muted-foreground shrink-0">{timeAgo(conv.updated_at)}</span>
                 </div>
                 <p className="mt-0.5 text-xs text-muted-foreground truncate">{conv.last_message || "Chưa có tin nhắn"}</p>
-                <div className="mt-1 flex items-center gap-2">
+                <div className="mt-1 flex items-center gap-2 flex-wrap">
                   <div className="flex items-center gap-1">
-                    <StatusIcon className={`h-3 w-3 ${config.className}`} />
-                    <span className={`text-[10px] font-medium ${config.className}`}>
-                      {conv.status === "unresolved" ? "AI đang xử lý" : conv.status === "escalated" ? "Cần hỗ trợ" : "Đã giải quyết"}
-                    </span>
+                    <StatusIcon className={`h-3 w-3 ${cfg.className}`} />
+                    <span className={`text-[10px] font-medium ${cfg.className}`}>{cfg.label}</span>
                   </div>
-                  {(conv as any).assigned_to && (() => {
-                    const assigned = members.find((m) => m.user_id === (conv as any).assigned_to);
-                    return assigned ? (
-                      <span className="text-[10px] text-muted-foreground truncate">
-                        · {assigned.profile?.full_name || assigned.profile?.email || "Agent"}
-                      </span>
-                    ) : null;
-                  })()}
+                  {assignedSupporter && (
+                    <span className="text-[10px] text-muted-foreground truncate">
+                      · {assignedSupporter.profile?.full_name || assignedSupporter.profile?.email || "Supporter"}
+                    </span>
+                  )}
                 </div>
               </div>
             </button>

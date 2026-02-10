@@ -2,18 +2,23 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { MessageSquare } from "lucide-react";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import type { AdminTab } from "@/components/admin/AdminSidebar";
 import { InboxList } from "@/components/admin/InboxList";
 import { ChatPanel } from "@/components/admin/ChatPanel";
 import { ContextPanel } from "@/components/admin/ContextPanel";
 import { KnowledgeBase } from "@/components/admin/KnowledgeBase";
 import { SettingsPanel } from "@/components/admin/SettingsPanel";
+import { SupporterPanel } from "@/components/admin/SupporterPanel";
+import { ToolsPanel } from "@/components/admin/ToolsPanel";
+import { CredentialsPanel } from "@/components/admin/CredentialsPanel";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
 const AdminDashboard = () => {
-  const { user, organization, membership, loading, isSuperAdmin, signOut } = useAuth();
+  const { user, organization, membership, loading, isSuperAdmin, isSupporter, signOut } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<"inbox" | "knowledge" | "settings">("inbox");
+  const [activeTab, setActiveTab] = useState<AdminTab>("inbox");
+  const [toolsSubTab, setToolsSubTab] = useState<"tools" | "credentials">("tools");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<any[]>([]);
@@ -22,6 +27,7 @@ const AdminDashboard = () => {
   const [members, setMembers] = useState<any[]>([]);
 
   const isAdmin = membership?.role === "admin";
+  const isAdminOrSupporter = isAdmin || isSupporter;
 
   useEffect(() => {
     if (!loading && !user) {
@@ -177,7 +183,12 @@ const AdminDashboard = () => {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <AdminSidebar activeTab={activeTab} onTabChange={setActiveTab} isAdmin={isAdmin} />
+      <AdminSidebar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        isAdmin={isAdmin}
+        isSupporter={isSupporter}
+      />
       
       {activeTab === "inbox" && (
         <>
@@ -216,7 +227,38 @@ const AdminDashboard = () => {
         </>
       )}
 
+      {activeTab === "support" && isAdminOrSupporter && (
+        <SupporterPanel
+          organizationId={organization.id}
+          currentUserId={user.id}
+          scopeMode={organization.supporter_scope_mode ?? "assigned_only"}
+          isAdmin={isAdmin}
+        />
+      )}
       {activeTab === "knowledge" && isAdmin && <KnowledgeBase organizationId={organization.id} />}
+      {activeTab === "tools" && isAdmin && (
+        <div className="flex flex-1 flex-col overflow-hidden">
+          {/* Sub-tab bar */}
+          <div className="flex items-center gap-1 border-b border-border px-6 pt-4 pb-0">
+            {(["tools", "credentials"] as const).map((sub) => (
+              <button
+                key={sub}
+                onClick={() => setToolsSubTab(sub)}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                  toolsSubTab === sub
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {sub === "tools" ? "API Tools" : "Credentials"}
+              </button>
+            ))}
+          </div>
+          {/* Sub-panel */}
+          {toolsSubTab === "tools" && <ToolsPanel organizationId={organization.id} />}
+          {toolsSubTab === "credentials" && <CredentialsPanel organizationId={organization.id} />}
+        </div>
+      )}
       {activeTab === "settings" && isAdmin && <SettingsPanel organization={organization} membership={membership} />}
     </div>
   );

@@ -10,6 +10,8 @@ interface AuthContextType {
   organization: any | null;
   membership: any | null;
   isSuperAdmin: boolean;
+  isSupporter: boolean;
+  isAdminOrSupporter: boolean;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -32,6 +34,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [organization, setOrganization] = useState<any | null>(null);
   const [membership, setMembership] = useState<any | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [isSupporter, setIsSupporter] = useState(false);
+  const [isAdminOrSupporter, setIsAdminOrSupporter] = useState(false);
 
   const fetchUserData = async (userId: string) => {
     // Fetch profile
@@ -53,9 +57,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (mem) {
       setMembership(mem);
       setOrganization((mem as any).organizations);
+      const role = (mem as any).role as string;
+      setIsSupporter(role === "supporter");
+      setIsAdminOrSupporter(role === "admin" || role === "supporter");
     } else {
       setMembership(null);
       setOrganization(null);
+      setIsSupporter(false);
+      setIsAdminOrSupporter(false);
     }
 
     // Check super admin
@@ -124,10 +133,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setOrganization(null);
     setMembership(null);
     setIsSuperAdmin(false);
+    setIsSupporter(false);
+    setIsAdminOrSupporter(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, profile, organization, membership, isSuperAdmin, signUp, signIn, signOut, refreshOrgData }}>
+    <AuthContext.Provider value={{ user, session, loading, profile, organization, membership, isSuperAdmin, isSupporter, isAdminOrSupporter, signUp, signIn, signOut, refreshOrgData }}>
       {children}
     </AuthContext.Provider>
   );
