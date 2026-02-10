@@ -51,7 +51,7 @@ export const ChatPanel = ({ conversation, session, messages, organizationId }: C
         .from("organization_memberships")
         .select("user_id, role")
         .eq("organization_id", organizationId)
-        .in("role", ["admin", "supporter"]);
+        .in("role", ["admin", "supporter"] as any[]);
       if (!data) return;
 
       const userIds = data.map((m) => m.user_id);
@@ -90,7 +90,7 @@ export const ChatPanel = ({ conversation, session, messages, organizationId }: C
 
     if (convErr) { toast.error("Không thể nhận hội thoại"); setAssigning(false); return; }
 
-    const { error: assignErr } = await supabase
+    const { error: assignErr } = await (supabase as any)
       .from("conversation_assignments")
       .insert({
         conversation_id: conversation.id,
@@ -153,9 +153,9 @@ export const ChatPanel = ({ conversation, session, messages, organizationId }: C
 
     if (!error) {
       // Close active assignment
-      await supabase
+      await (supabase as any)
         .from("conversation_assignments")
-        .update({ status: "resolved", resolved_at: new Date().toISOString() } as any)
+        .update({ status: "resolved", resolved_at: new Date().toISOString() })
         .eq("conversation_id", conversation.id)
         .eq("status", "active");
 
@@ -404,7 +404,7 @@ export const ChatPanel = ({ conversation, session, messages, organizationId }: C
         /* Supporter viewing a conversation not assigned to them */
         <div className="flex items-center justify-center gap-2 border-t border-border p-4 text-xs text-muted-foreground">
           <Bot className="h-4 w-4" />
-          {status === "assigned"
+           {(status as string) === "assigned"
             ? "Hội thoại này đang được xử lý bởi supporter khác"
             : "Nhận hội thoại để bắt đầu chat"}
         </div>

@@ -37,30 +37,27 @@ export const SupporterPanel = ({
   // Fetch conversations scoped by supporter role
   useEffect(() => {
     const fetchData = async () => {
-      let query = supabase
+      let query = (supabase as any)
         .from("conversations")
         .select("*")
         .eq("organization_id", organizationId)
         .order("updated_at", { ascending: false });
 
       if (scopeMode === "assigned_only" && !isAdmin) {
-        // Supporter sees only conversations assigned to them
-        query = query.eq("assigned_supporter_id", currentUserId);
+        query = query.eq("assigned_supporter_id" as any, currentUserId);
       } else if (scopeMode === "all_escalated" && !isAdmin) {
-        // All supporters see escalated + queued + assigned
-        query = query.in("status", ["escalated", "queued", "assigned"]);
+        query = query.in("status", ["escalated", "queued", "assigned"] as any[]);
       }
-      // scopeMode === "team_pool" or isAdmin: show all escalated/queued/assigned
 
       if (isAdmin && scopeMode !== "assigned_only") {
-        query = query.in("status", ["escalated", "queued", "assigned"]);
+        query = query.in("status", ["escalated", "queued", "assigned"] as any[]);
       }
 
       const { data: convs } = await query;
       if (!convs) return;
 
       setConversations(convs);
-      const sessionIds = [...new Set(convs.map((c: any) => c.contact_session_id))];
+      const sessionIds = [...new Set(convs.map((c: any) => c.contact_session_id))] as string[];
       if (sessionIds.length > 0) {
         const { data: sessData } = await supabase
           .from("contact_sessions")
@@ -75,7 +72,7 @@ export const SupporterPanel = ({
         .from("organization_memberships")
         .select("user_id, role")
         .eq("organization_id", organizationId)
-        .in("role", ["admin", "supporter"]);
+        .in("role", ["admin", "supporter"] as any[]);
       if (!data) return;
       const userIds = data.map((m: any) => m.user_id);
       const { data: profiles } = await supabase

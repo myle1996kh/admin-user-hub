@@ -75,7 +75,7 @@ export const ToolsPanel = ({ organizationId }: ToolsPanelProps) => {
 
   const fetchTools = async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from("tenant_tools")
       .select("*")
       .eq("organization_id", organizationId)
@@ -154,16 +154,16 @@ export const ToolsPanel = ({ organizationId }: ToolsPanelProps) => {
     const payload = { ...form, input_schema: parsedSchema };
 
     if (editingId) {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("tenant_tools")
-        .update(payload as any)
+        .update(payload)
         .eq("id", editingId);
       if (error) { toast.error("Lỗi: " + error.message); }
       else { toast.success("Đã cập nhật tool"); cancelForm(); fetchTools(); }
     } else {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("tenant_tools")
-        .insert({ ...payload, organization_id: organizationId } as any);
+        .insert({ ...payload, organization_id: organizationId });
       if (error) { toast.error("Lỗi: " + error.message); }
       else { toast.success("Đã tạo tool mới"); cancelForm(); fetchTools(); }
     }
@@ -171,16 +171,16 @@ export const ToolsPanel = ({ organizationId }: ToolsPanelProps) => {
   };
 
   const toggleEnabled = async (t: Tool) => {
-    await supabase
+    await (supabase as any)
       .from("tenant_tools")
-      .update({ enabled: !t.enabled } as any)
+      .update({ enabled: !t.enabled })
       .eq("id", t.id);
     fetchTools();
   };
 
   const deleteTool = async (t: Tool) => {
     if (!confirm(`Xóa tool "${t.display_name}"?`)) return;
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from("tenant_tools")
       .delete()
       .eq("id", t.id);
