@@ -111,12 +111,9 @@ serve(async (req) => {
     // ── 2. Load org config ──────────────────────────────────────────────────
     const { data: org } = await supabase
       .from("organizations")
-      .select(
-        "auto_assign_enabled, auto_assign_strategy, require_online_for_auto, " +
-        "fallback_if_no_online, max_concurrent_per_supporter, supporter_scope_mode"
-      )
+      .select("*")
       .eq("id", organization_id)
-      .single();
+      .single() as { data: any; error: any };
 
     if (!org) return json({ error: "Org config not found" }, 404);
 

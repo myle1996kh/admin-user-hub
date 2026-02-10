@@ -56,7 +56,7 @@ export const CredentialsPanel = ({ organizationId }: CredentialsPanelProps) => {
 
   const fetchCredentials = async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from("tenant_credentials")
       .select("*")
       .eq("organization_id", organizationId)
@@ -115,9 +115,9 @@ export const CredentialsPanel = ({ organizationId }: CredentialsPanelProps) => {
     };
 
     if (editingId) {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("tenant_credentials")
-        .update(payload as any)
+        .update(payload)
         .eq("id", editingId);
       if (error) { toast.error("Lỗi: " + error.message); }
       else { toast.success("Đã cập nhật credential"); cancelForm(); fetchCredentials(); }
@@ -132,9 +132,9 @@ export const CredentialsPanel = ({ organizationId }: CredentialsPanelProps) => {
         return;
       }
 
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("tenant_credentials")
-        .insert({ ...payload, organization_id: organizationId } as any);
+        .insert({ ...payload, organization_id: organizationId });
       if (error) { toast.error("Lỗi: " + error.message); }
       else { toast.success("Đã thêm credential"); cancelForm(); fetchCredentials(); }
     }
@@ -143,7 +143,7 @@ export const CredentialsPanel = ({ organizationId }: CredentialsPanelProps) => {
 
   const deleteCredential = async (c: Credential) => {
     if (!confirm(`Xóa credential "${c.credential_key}"?`)) return;
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from("tenant_credentials")
       .delete()
       .eq("id", c.id);

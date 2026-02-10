@@ -20,7 +20,7 @@ export const usePresence = (supporterId: string | undefined, organizationId: str
   const upsertPresence = useCallback(
     async (newStatus: PresenceStatus) => {
       if (!supporterId || !organizationId) return;
-      await supabase
+      await (supabase as any)
         .from("supporter_presence")
         .upsert(
           {

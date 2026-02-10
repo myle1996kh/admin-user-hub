@@ -61,8 +61,50 @@ export type Database = {
           },
         ]
       }
+      conversation_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          conversation_id: string
+          created_at: string
+          id: string
+          resolved_at: string | null
+          status: string
+          supporter_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          conversation_id: string
+          created_at?: string
+          id?: string
+          resolved_at?: string | null
+          status?: string
+          supporter_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          resolved_at?: string | null
+          status?: string
+          supporter_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_assignments_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
+          assigned_supporter_id: string | null
           assigned_to: string | null
           contact_session_id: string
           created_at: string
@@ -73,6 +115,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          assigned_supporter_id?: string | null
           assigned_to?: string | null
           contact_session_id: string
           created_at?: string
@@ -83,6 +126,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          assigned_supporter_id?: string | null
           assigned_to?: string | null
           contact_session_id?: string
           created_at?: string
@@ -224,25 +268,43 @@ export type Database = {
       organizations: {
         Row: {
           ai_model: string | null
+          auto_assign_enabled: boolean
+          auto_assign_strategy: string
           created_at: string
+          fallback_if_no_online: string
           id: string
+          max_concurrent_per_supporter: number
           name: string
+          require_online_for_auto: boolean
+          supporter_scope_mode: string
           updated_at: string
           widget_greeting: string | null
         }
         Insert: {
           ai_model?: string | null
+          auto_assign_enabled?: boolean
+          auto_assign_strategy?: string
           created_at?: string
+          fallback_if_no_online?: string
           id?: string
+          max_concurrent_per_supporter?: number
           name: string
+          require_online_for_auto?: boolean
+          supporter_scope_mode?: string
           updated_at?: string
           widget_greeting?: string | null
         }
         Update: {
           ai_model?: string | null
+          auto_assign_enabled?: boolean
+          auto_assign_strategy?: string
           created_at?: string
+          fallback_if_no_online?: string
           id?: string
+          max_concurrent_per_supporter?: number
           name?: string
+          require_online_for_auto?: boolean
+          supporter_scope_mode?: string
           updated_at?: string
           widget_greeting?: string | null
         }
@@ -296,20 +358,179 @@ export type Database = {
         }
         Relationships: []
       }
+      supporter_presence: {
+        Row: {
+          active_conversation_count: number
+          created_at: string
+          id: string
+          last_heartbeat: string
+          organization_id: string
+          status: string
+          supporter_id: string
+          updated_at: string
+        }
+        Insert: {
+          active_conversation_count?: number
+          created_at?: string
+          id?: string
+          last_heartbeat?: string
+          organization_id: string
+          status?: string
+          supporter_id: string
+          updated_at?: string
+        }
+        Update: {
+          active_conversation_count?: number
+          created_at?: string
+          id?: string
+          last_heartbeat?: string
+          organization_id?: string
+          status?: string
+          supporter_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supporter_presence_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_credentials: {
+        Row: {
+          created_at: string
+          credential_key: string
+          credential_value: string
+          description: string | null
+          id: string
+          organization_id: string
+          scope: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          credential_key: string
+          credential_value: string
+          description?: string | null
+          id?: string
+          organization_id: string
+          scope?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          credential_key?: string
+          credential_value?: string
+          description?: string | null
+          id?: string
+          organization_id?: string
+          scope?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_credentials_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_tools: {
+        Row: {
+          auth_header_name: string | null
+          auth_type: string
+          created_at: string
+          credential_key: string | null
+          description: string
+          display_name: string
+          enabled: boolean
+          endpoint_url: string
+          entity_extraction_strategy: string
+          http_method: string
+          id: string
+          input_schema: Json
+          organization_id: string
+          output_template: string | null
+          response_type: string
+          tool_name: string
+          updated_at: string
+        }
+        Insert: {
+          auth_header_name?: string | null
+          auth_type?: string
+          created_at?: string
+          credential_key?: string | null
+          description?: string
+          display_name: string
+          enabled?: boolean
+          endpoint_url: string
+          entity_extraction_strategy?: string
+          http_method?: string
+          id?: string
+          input_schema?: Json
+          organization_id: string
+          output_template?: string | null
+          response_type?: string
+          tool_name: string
+          updated_at?: string
+        }
+        Update: {
+          auth_header_name?: string | null
+          auth_type?: string
+          created_at?: string
+          credential_key?: string | null
+          description?: string
+          display_name?: string
+          enabled?: boolean
+          endpoint_url?: string
+          entity_extraction_strategy?: string
+          http_method?: string
+          id?: string
+          input_schema?: Json
+          organization_id?: string
+          output_template?: string | null
+          response_type?: string
+          tool_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_tools_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      increment_active_conversations: {
+        Args: { p_supporter_id: string }
+        Returns: undefined
+      }
       is_org_admin: { Args: { _org_id: string }; Returns: boolean }
       is_org_member: { Args: { _org_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      conversation_status: "unresolved" | "escalated" | "resolved"
+      conversation_status:
+        | "unresolved"
+        | "escalated"
+        | "resolved"
+        | "queued"
+        | "assigned"
       message_content_type: "text" | "tool_call"
       message_role: "user" | "assistant" | "system"
-      org_role: "admin" | "member"
+      org_role: "admin" | "member" | "supporter"
       platform_role: "super_admin" | "user"
     }
     CompositeTypes: {
@@ -438,10 +659,16 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      conversation_status: ["unresolved", "escalated", "resolved"],
+      conversation_status: [
+        "unresolved",
+        "escalated",
+        "resolved",
+        "queued",
+        "assigned",
+      ],
       message_content_type: ["text", "tool_call"],
       message_role: ["user", "assistant", "system"],
-      org_role: ["admin", "member"],
+      org_role: ["admin", "member", "supporter"],
       platform_role: ["super_admin", "user"],
     },
   },
